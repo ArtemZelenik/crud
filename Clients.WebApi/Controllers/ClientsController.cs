@@ -17,32 +17,28 @@ namespace Clients
 
         [HttpPost]
         [Route("")]
-        public Task<Client> CreateAsync(Client request, CancellationToken cancellationToken) 
+        public Task<ClientInfo> CreateAsync(ClientInfo request, CancellationToken cancellationToken) 
         {
             return clientsService.CreateAsync(request.Name, request.PhoneNumber, request.Email, cancellationToken);
         }
 
         [HttpGet]
         [Route("{clientId}")]
-        public Task<Client> GetAsync(int clientId, CancellationToken cancellationToken)
+        public Task<ClientInfo> GetAsync(int clientId, CancellationToken cancellationToken)
         {
             return clientsService.ReadAsync(clientId, cancellationToken);
         }
 
         [HttpPut]
         [Route("{clientId}")]
-        public async Task<IActionResult> UpdateAsync(int clientId, Client request, CancellationToken cancellationToken)
-        {
-            var client = await clientsService.ReadAsync(clientId, cancellationToken);
-
-            if (client == null)
-                return BadRequest($"Client with id = \"{clientId}\" is not found");
-
-            client.Name = request.Name;
-            client.PhoneNumber = request.PhoneNumber;
-            client.Email = request.Email;
-
-            await clientsService.UpdateAsync(client, cancellationToken);
+        public async Task<IActionResult> UpdateAsync(int clientId, ClientInfo request, CancellationToken cancellationToken)
+        {   
+            await clientsService.UpdateAsync(clientId, clientInfo => 
+            {
+                clientInfo.Name = request.Name;
+                clientInfo.PhoneNumber = request.PhoneNumber;
+                clientInfo.Email = request.Email;
+            }, cancellationToken);
 
             return Ok();
         }
@@ -51,12 +47,7 @@ namespace Clients
         [Route("{clientId}")]
         public async Task<IActionResult> DeleteAsync(int clientId, CancellationToken cancellationToken)
         {
-            var client = await clientsService.ReadAsync(clientId, cancellationToken);
-
-            if (client != null)
-            {
-                await clientsService.DeleteAsync(client, cancellationToken);
-            }
+            await clientsService.DeleteAsync(clientId, clientInfo => { }, cancellationToken);
 
             return Ok();
         }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Linq;
 using System.Threading;
@@ -10,12 +11,12 @@ namespace Clients
     {
         private readonly ClientsDbContext dbContext;
 
-        public ClientsService(ClientsDbContext dbContext)
+        public ClientsService(IServiceProvider serviceProvider)
         {
-            this.dbContext = dbContext;
+            this.dbContext = serviceProvider.GetRequiredService<ClientsDbContext>();
         }
 
-        public async Task<Client> CreateAsync(string name, string phone, string email, CancellationToken cancelationToken = default) 
+        public async Task<ClientInfo> CreateAsync(string name, string phone, string email, CancellationToken cancellationToken = default) 
         {
             var client = new Client()
             {
@@ -28,32 +29,88 @@ namespace Clients
 
             dbContext.Clients.Add(client);
 
-            await dbContext.SaveChangesAsync(cancelationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
 
-            return client;
+            return new ClientInfo
+            {
+                Id = client.Id,
+                Email = client.Email,
+                PhoneNumber = client.PhoneNumber,
+                Name = client.Name
+            };
         }
 
-        public Task<Client> ReadAsync(int clientId, CancellationToken cancelationToken = default)
+        public Task<ClientInfo> ReadAsync(int clientId, CancellationToken cancellationToken = default)
         {
             return dbContext.Clients
                 .Where(i => i.Id == clientId)
-                .FirstOrDefaultAsync(cancelationToken);
+                .Select(i => new ClientInfo
+                {
+                    Id = i.Id,
+                    Email = i.Email,
+                    PhoneNumber = i.PhoneNumber,
+                    Name = i.Name
+                })
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
-        public async Task UpdateAsync(Client client, CancellationToken cancelationToken = default)
+        public async Task UpdateAsync(int clientId, Action<ClientInfo> update, CancellationToken cancellationToken = default)
         {
+            var client = await dbContext.Clients
+                .Where(i => i.Id == clientId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (client == null)
+                throw new ClientNotFoundException(clientId);
+
+            var clientInfo = new ClientInfo
+            {
+                Id = client.Id,
+                Email = client.Email,
+                PhoneNumber = client.PhoneNumber,
+                Name = client.Name
+            };
+
+            update(clientInfo);
+
+            client.Email = clientInfo.Email;
+            client.PhoneNumber = clientInfo.PhoneNumber;
+            client.Name = clientInfo.Name;
+
             client.ModifiedAt = DateTime.Now;
 
             dbContext.Clients.Update(client);
 
-            await dbContext.SaveChangesAsync(cancelationToken);
+            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task DeleteAsync(Client client, CancellationToken cancelationToken = default)
-        {            
-            dbContext.Clients.Remove(client);
+        public Task DeleteAsync(int clientId, CancellationToken cancellationToken = default)
+        {
+            return DeleteAsync(clientId, clientInfo => { }, cancellationToken);
+        }
 
-            await dbContext.SaveChangesAsync(cancelationToken);
+        public async Task DeleteAsync(int clientId, Action<ClientInfo> action, CancellationToken cancellationToken = default)
+        {
+            var client = await dbContext.Clients
+                .Where(i => i.Id == clientId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (client != null)
+            {
+                var clientInfo = new ClientInfo
+                {
+                    Id = client.Id,
+                    Email = client.Email,
+                    PhoneNumber = client.PhoneNumber,
+                    Name = client.Name
+                };
+
+                action(clientInfo);
+
+                dbContext.Clients.Remove(client);
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
         }
     }
 }

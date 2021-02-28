@@ -2,7 +2,7 @@
 
 namespace Clients
 {
-    public class Client
+    internal class Client
     {
         public Client()
         {

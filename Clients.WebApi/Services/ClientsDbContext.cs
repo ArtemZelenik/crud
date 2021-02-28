@@ -2,7 +2,7 @@
 
 namespace Clients
 {
-    public class ClientsDbContext : DbContext
+    internal class ClientsDbContext : DbContext
     {
         public ClientsDbContext(DbContextOptions options) : base(options) { }
 
